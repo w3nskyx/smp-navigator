@@ -6,7 +6,6 @@
     screen: "home",
     protocol: null,
     tab: "diag",
-    mode: localStorage.getItem("smp_mode") || "brief",
     theme: localStorage.getItem("smp_theme") || "light",
     nav: "algorithms",
     strategy: "pci",
@@ -28,8 +27,9 @@
 
   function applyPrefs(){
     document.documentElement.dataset.theme = state.theme;
-    document.body.classList.toggle("brief", state.mode === "brief");
-    localStorage.setItem("smp_mode", state.mode);
+    // Расширенная информация отображается постоянно.
+    document.body.classList.remove("brief");
+    localStorage.removeItem("smp_mode");
     localStorage.setItem("smp_theme", state.theme);
   }
 
@@ -47,7 +47,6 @@
       <header class="topbar">
         <div class="brand">${logo()}<div><div class="brand-title">СМП Навигатор</div><div class="brand-sub">догоспитальный этап</div></div></div>
         <div class="actions">
-          <button class="icon-btn" data-action="toggle-mode" title="Кратко / подробно">${state.mode === "brief" ? "К" : "П"}</button>
           <button class="icon-btn" data-action="toggle-theme" title="Тема">${state.theme === "dark" ? "☀️" : "🌙"}</button>
         </div>
       </header>
@@ -78,7 +77,7 @@
       <section class="hero">
         <h1>Клинические алгоритмы СМП</h1>
         <p>Быстрый доступ к действиям, дозам и тактике без длинного поиска по документам.</p>
-        <div class="hero-tags"><span class="hero-tag">6 протоколов</span><span class="hero-tag">Кратко / подробно</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
+        <div class="hero-tags"><span class="hero-tag">6 протоколов</span><span class="hero-tag">Подробный алгоритм</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
       </section>
       <div class="section-title">Догоспитальный этап</div>
       <div class="protocol-list">
@@ -127,11 +126,6 @@
         <button class="favorite-btn ${state.favorite?"on":""}" data-action="favorite">${state.favorite?"♥":"♡"}</button>
       </div>
 
-      <div class="segmented">
-        <button class="seg-btn ${state.mode==="brief"?"active":""}" data-mode="brief">Кратко</button>
-        <button class="seg-btn ${state.mode==="full"?"active":""}" data-mode="full">Подробно</button>
-      </div>
-
       <div class="tabs">
         <button class="tab-btn ${state.tab==="diag"?"active":""}" data-tab="diag">Диагностика</button>
         <button class="tab-btn ${state.tab==="tx"?"active":""}" data-tab="tx">Лечение</button>
@@ -140,7 +134,7 @@
 
       ${state.tab==="diag" ? diagTab() : state.tab==="tx" ? treatmentTab() : tacticsTab()}
 
-      <div class="footer-note">Основание: ${D.meta.source}. Восстановленная версия 1.1.1.</div>
+      <div class="footer-note">Основание: ${D.meta.source}. Версия ${D.meta.version} BETA.</div>
     `;
   }
 
@@ -227,8 +221,8 @@
         <p>Показания в КР: <strong>АГ и/или сохраняющаяся ишемия миокарда и/или тахикардия</strong> при отсутствии признаков ОСН и противопоказаний.</p>
         <p>Метопролол: <span class="dose">5 мг в/в медленно</span> под контролем ЭКГ и АД, <span class="dose">2–3 раза</span> с интервалом не менее <span class="dose">2 минут</span>.</p>
         <div class="notice danger"><strong>Не использовать / соблюдать осторожность:</strong> кардиогенный шок, АВ-блокада II–III степени без ЭКС, выраженная бронхообструкция; также учитывать САД &lt;100 мм рт. ст., ЧСС &lt;60/мин, признаки СН/низкого выброса и риск кардиогенного шока.</div>
-        <div class="notice warn"><strong>⚠ НА УТОЧНЕНИИ — Анаприлин (пропранолол) 20–40 мг.</strong><br>
-        По имеющейся практической информации используется сублингвально/внутрь, однако эта схема <strong>не найдена в КР157_5</strong>. До подтверждения действующим локальным протоколом/СОП СПб СМП не считать её рекомендацией приложения.</div>
+        <div class="notice info"><strong>Анаприлин (пропранолол): 20–40 мг сублингвально/внутрь.</strong><br>
+        Схема утверждена по итогам клинического тестирования сотрудниками СМП. Она не приведена в КР157_5 и должна применяться с учётом действующих локальных СОП, противопоказаний и клинической ситуации.</div>
       `,`КР157_5: раздел 3.2.5, стр. 68–70; дозировка метопролола — Приложение А3.`)}
 
       <div class="strategy-box">
@@ -387,11 +381,6 @@
       render();
       return;
     }
-    if(btn.dataset.mode){
-      state.mode = btn.dataset.mode;
-      render();
-      return;
-    }
     if(btn.dataset.strategy){
       state.strategy = btn.dataset.strategy;
       render();
@@ -400,11 +389,6 @@
     if(btn.dataset.action==="back"){
       state.screen = "home";
       window.scrollTo(0,0);
-      render();
-      return;
-    }
-    if(btn.dataset.action==="toggle-mode"){
-      state.mode = state.mode==="brief" ? "full" : "brief";
       render();
       return;
     }
