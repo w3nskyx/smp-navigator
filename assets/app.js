@@ -11,8 +11,17 @@
     nav: "algorithms",
     strategy: "pci",
     favorite: localStorage.getItem("fav_stemi") === "1",
-    favorites: (() => { try { const value = JSON.parse(localStorage.getItem("smp_favorites") || "[]"); return Array.isArray(value) ? value : []; } catch(e) { return []; } })(),
-    drugQuery: ""
+    favorites: (() => {
+      try {
+        const value = JSON.parse(localStorage.getItem("smp_favorites") || "[]");
+        if(!Array.isArray(value)) return [];
+        const migrated = [...new Set(value.map(id => ["kr_814_1","kr_523_3"].includes(id) ? "onmk" : id))];
+        if(JSON.stringify(migrated) !== JSON.stringify(value)) localStorage.setItem("smp_favorites",JSON.stringify(migrated));
+        return migrated;
+      } catch(e) { return []; }
+    })(),
+    drugQuery: "",
+    protocolQuery: ""
   };
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -75,6 +84,9 @@
     if(state.nav === "scales") return scalesView();
     if(state.nav === "favorites") return favoritesView();
 
+    const q = state.protocolQuery.trim().toLowerCase();
+    const protocols = D.protocols.filter(p => !q || (p.title+" "+p.sub+" "+(p.searchTerms || "")).toLowerCase().includes(q));
+
     return `
       <section class="hero">
         <h1>Клинические алгоритмы СМП</h1>
@@ -82,12 +94,13 @@
         <div class="hero-tags"><span class="hero-tag">${D.protocols.length} протоколов</span><span class="hero-tag">Кратко / подробно</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
       </section>
       <div class="section-title">Догоспитальный этап</div>
+      <input class="search" data-search-protocols placeholder="Поиск протокола…" value="${esc(state.protocolQuery)}">
       <div class="protocol-list">
-        ${D.protocols.map(p => `<button class="protocol-card" data-protocol="${p.id}">
+        ${protocols.length ? protocols.map(p => `<button class="protocol-card" data-protocol="${p.id}">
           <span class="protocol-icon">${p.icon}</span>
           <span class="protocol-meta"><span class="protocol-name">${p.title}</span><span class="protocol-sub">${p.sub}</span></span>
           <span class="badge ${p.status}">${p.status==="active"?(p.beta?"BETA":"ГОТОВО"):"СКОРО"}</span>
-        </button>`).join("")}
+        </button>`).join("") : `<div class="empty">Ничего не найдено</div>`}
       </div>
       <div class="footer-note">Тестовая версия. Медицинские материалы проходят клиническую проверку и не заменяют локальные СОП, приказы и клиническое решение специалиста.</div>
     `;
@@ -131,7 +144,7 @@
   }
 
   function markdownInline(text){
-    return esc(text).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+    return esc(String(text).replace(/\\([\\<>])/g,"$1")).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
   }
 
   function markdownBlocks(markdown){
@@ -140,6 +153,7 @@
     let listType = "";
     let listItems = [];
     let paragraph = [];
+    let quote = [];
     const flushList = () => {
       if(!listType) return;
       const tag = listType === "ol" ? "ol" : "ul";
@@ -148,17 +162,33 @@
     };
     const flushParagraph = () => {
       if(!paragraph.length) return;
-      out.push(`<p>${paragraph.map(markdownInline).join(" ")}</p>`);
+      out.push(`<p>${markdownInline(paragraph.join(" "))}</p>`);
       paragraph = [];
     };
+    const flushQuote = () => {
+      if(!quote.length) return;
+      out.push(`<div class="notice info">${markdownBlocks(quote.join("\n"))}</div>`);
+      quote = [];
+    };
     for(const raw of lines){
-      const line = raw.trim();
+      const line = raw.trim().replace(/\\$/,"");
+      if(line.startsWith(">")){
+        flushParagraph(); flushList();
+        quote.push(line.replace(/^>\s?/,""));
+        continue;
+      }
+      flushQuote();
       if(!line){ flushParagraph(); flushList(); continue; }
+      if(/^-{3,}$/.test(line)){ flushParagraph(); flushList(); continue; }
       if(line.startsWith("### ")){
         flushParagraph(); flushList(); out.push(`<h3>${markdownInline(line.slice(4))}</h3>`); continue;
       }
       const bullet = line.match(/^[-*]\s+(.+)$/);
       const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+      if(listType && /^\s{2,}\S/.test(raw) && !bullet && !numbered){
+        listItems[listItems.length-1] += " " + line;
+        continue;
+      }
       if(bullet || numbered){
         flushParagraph();
         const nextType = numbered ? "ol" : "ul";
@@ -171,7 +201,7 @@
       }
       flushList(); paragraph.push(line);
     }
-    flushParagraph(); flushList();
+    flushParagraph(); flushList(); flushQuote();
     return out.join("");
   }
 
@@ -181,6 +211,9 @@
     const lines = markdown.split(/\r?\n/);
     const sectionStart = lines.findIndex(line => line.startsWith("## "));
     const preface = lines.slice(1, sectionStart < 0 ? lines.length : sectionStart).join("\n").trim();
+    const metadata = preface.match(/^\*\*([\s\S]*?)\*\*/);
+    const prefaceMeta = metadata ? metadata[1].replace(/\s+/g," ").trim() : "";
+    const prefaceBody = (metadata ? preface.slice(metadata[0].length) : preface).trim();
     const sections = {};
     let current = "";
     for(const line of lines.slice(sectionStart < 0 ? lines.length : sectionStart)){
@@ -205,7 +238,7 @@
         <button class="tab-btn ${state.tab==="tx"?"active":""}" data-tab="tx">Лечение</button>
         <button class="tab-btn ${state.tab==="tactics"?"active":""}" data-tab="tactics">Тактика</button>
       </div>
-      ${state.tab==="diag" && preface ? `<section class="card"><div class="card-head"><div class="card-main"><div class="card-title">${esc(sourceTitle)}</div><div class="card-sub">${esc(markdown.replace(/^#[^\n]*\n+/,"").split("\n")[0].replace(/\*\*/g,""))}</div></div></div><div class="card-body">${markdownBlocks(preface.split("\n").slice(2).join("\n"))}</div></section>` : ""}
+      ${state.tab==="diag" && prefaceBody ? `<section class="card"><div class="card-head"><div class="card-main"><div class="card-title">${esc(sourceTitle)}</div><div class="card-sub">${esc(prefaceMeta)}</div></div></div><div class="card-body">${markdownBlocks(prefaceBody)}</div></section>` : ""}
       ${renderMarkdownSection(sections[sectionKey] || [])}
       <div class="footer-note">Источник медицинского содержания: ${esc(protocol.sub.split(" · ")[0])}. Версия ${D.meta.version} BETA.</div>`;
   }
@@ -213,15 +246,16 @@
   function renderMarkdownSection(lines){
     const chunks = [];
     let current = {title:"", lines:[]};
+    const hasContent = chunk => chunk.lines.some(line => line.trim() && !/^-{3,}$/.test(line.trim()));
     for(const line of lines){
       if(line.startsWith("### ")){
-        if(current.title || current.lines.some(x=>x.trim())) chunks.push(current);
+        if(hasContent(current)) chunks.push(current);
         current = {title:line.slice(4).trim(), lines:[]};
       } else current.lines.push(line);
     }
-    if(current.title || current.lines.some(x=>x.trim())) chunks.push(current);
+    if(hasContent(current)) chunks.push(current);
     return chunks.map((chunk,index)=>chunk.title
-      ? card(String(index+1),esc(chunk.title),"",markdownBlocks(chunk.lines.join("\n")),"")
+      ? card(String(index+1),esc(chunk.title),"",markdownBlocks(chunk.lines.join("\n")),"",/информация для пациента\s*\/\s*родственников/i.test(chunk.title) ? "patient-info-card" : "")
       : `<section class="card"><div class="card-body">${markdownBlocks(chunk.lines.join("\n"))}</div></section>`).join("");
   }
 
@@ -278,8 +312,8 @@
     `;
   }
 
-  function card(i,title,sub,body,source){
-    return `<section class="card">
+  function card(i,title,sub,body,source,cssClass=""){
+    return `<section class="card${cssClass ? " "+cssClass : ""}">
       <div class="card-head"><div class="card-index">${i}</div><div class="card-main"><div class="card-title">${title}</div>${sub?`<div class="card-sub">${sub}</div>`:""}</div></div>
       <div class="card-body">${body}${source?`<div class="source details">${source}</div>`:""}</div>
     </section>`;
@@ -674,6 +708,15 @@
   });
 
   app.addEventListener("input", e => {
+    if(e.target.matches("[data-search-protocols]")){
+      state.protocolQuery = e.target.value;
+      const pos = e.target.selectionStart;
+      render();
+      const input = document.querySelector("[data-search-protocols]");
+      input?.focus();
+      try{input?.setSelectionRange(pos,pos)}catch(_){}
+      return;
+    }
     if(e.target.matches("[data-search-drugs]")){
       state.drugQuery = e.target.value;
       const pos = e.target.selectionStart;

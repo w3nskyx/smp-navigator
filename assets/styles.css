@@ -109,6 +109,7 @@ button{cursor:pointer}
 .notice.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,var(--line));color:color-mix(in srgb,var(--text) 85%,var(--warn))}
 .notice.danger{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 40%,var(--line))}
 .card{border:1px solid var(--line);background:var(--surface);border-radius:16px;margin:10px 0;overflow:hidden;box-shadow:var(--shadow)}
+.card.patient-info-card{border-color:var(--accent);background:var(--accent-soft)}
 .card-head{padding:13px 14px;display:flex;align-items:flex-start;gap:10px}
 .card-index{width:28px;height:28px;border-radius:9px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent);font-weight:900;flex:none}
 .card-main{flex:1;min-width:0}

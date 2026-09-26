@@ -1,7 +1,7 @@
 
 window.SMP_DATA = {
   meta: {
-    version: "1.2.0",
+    version: "1.2.1",
     source: "Клинические рекомендации «Острый инфаркт миокарда с подъемом сегмента ST электрокардиограммы», 2024; КР157_5",
     scope: "Догоспитальный этап"
   },
@@ -9,8 +9,7 @@ window.SMP_DATA = {
   protocols: [
     {id:"stemi", icon:"❤️", title:"ОКС с подъёмом ST", sub:"STEMI · взрослые", status:"active"},
     {id:"nstemi", icon:"🫀", title:"ОКС без подъёма ST", sub:"NSTEMI · взрослые", status:"active"},
-    {id:"kr_814_1", icon:"🧠", title:"Ишемический инсульт / ТИА", sub:"KR_814_1 · взрослые и дети", status:"active", beta:true},
-    {id:"kr_523_3", icon:"🧠", title:"Геморрагический инсульт", sub:"KR_523_3 · взрослые", status:"active", beta:true},
+    {id:"onmk", icon:"🧠", title:"ОНМК", sub:"KR_814_1 / KR_523_3 · единая карточка", status:"active", beta:true, searchTerms:"инсульт ишемический геморрагический ТИА"},
     {id:"gib", icon:"🩸", title:"ЖКК", sub:"Желудочно-кишечное кровотечение", status:"soon"},
     {id:"kr_637_2", icon:"🤰", title:"Преэклампсия / эклампсия", sub:"KR_637_2 · беременность, роды и послеродовой период", status:"active", beta:true},
     {id:"kr_7_2", icon:"💧", title:"Мочекаменная болезнь / почечная колика", sub:"KR_7_2 · взрослые", status:"active", beta:true},
