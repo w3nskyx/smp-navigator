@@ -6,6 +6,7 @@
     screen: "home",
     protocol: null,
     tab: "diag",
+    mode: localStorage.getItem("smp_mode") || "brief",
     theme: localStorage.getItem("smp_theme") || "light",
     nav: "algorithms",
     strategy: "pci",
@@ -27,9 +28,8 @@
 
   function applyPrefs(){
     document.documentElement.dataset.theme = state.theme;
-    // Расширенная информация отображается постоянно.
-    document.body.classList.remove("brief");
-    localStorage.removeItem("smp_mode");
+    document.body.classList.toggle("brief", state.mode === "brief");
+    localStorage.setItem("smp_mode", state.mode);
     localStorage.setItem("smp_theme", state.theme);
   }
 
@@ -47,6 +47,7 @@
       <header class="topbar">
         <div class="brand">${logo()}<div><div class="brand-title">СМП Навигатор</div><div class="brand-sub">догоспитальный этап</div></div></div>
         <div class="actions">
+          <button class="icon-btn" data-action="toggle-mode" title="Кратко / подробно">${state.mode === "brief" ? "К" : "П"}</button>
           <button class="icon-btn" data-action="toggle-theme" title="Тема">${state.theme === "dark" ? "☀️" : "🌙"}</button>
         </div>
       </header>
@@ -77,7 +78,7 @@
       <section class="hero">
         <h1>Клинические алгоритмы СМП</h1>
         <p>Быстрый доступ к действиям, дозам и тактике без длинного поиска по документам.</p>
-        <div class="hero-tags"><span class="hero-tag">6 протоколов</span><span class="hero-tag">Подробный алгоритм</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
+        <div class="hero-tags"><span class="hero-tag">6 протоколов</span><span class="hero-tag">Кратко / подробно</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
       </section>
       <div class="section-title">Догоспитальный этап</div>
       <div class="protocol-list">
@@ -119,11 +120,21 @@
   }
 
   function protocolView(){
+    if(state.protocol === "nstemi") return nstemiProtocolView();
+    return stemiProtocolView();
+  }
+
+  function stemiProtocolView(){
     return `
       <div class="detail-header">
         <button class="back-btn" data-action="back">←</button>
         <div class="detail-title"><h1>ОКС с подъёмом ST</h1><p>STEMI · взрослые · догоспитальный этап</p></div>
         <button class="favorite-btn ${state.favorite?"on":""}" data-action="favorite">${state.favorite?"♥":"♡"}</button>
+      </div>
+
+      <div class="segmented">
+        <button class="seg-btn ${state.mode==="brief"?"active":""}" data-mode="brief">Кратко</button>
+        <button class="seg-btn ${state.mode==="full"?"active":""}" data-mode="full">Подробно</button>
       </div>
 
       <div class="tabs">
@@ -134,7 +145,30 @@
 
       ${state.tab==="diag" ? diagTab() : state.tab==="tx" ? treatmentTab() : tacticsTab()}
 
-      <div class="footer-note">Основание: ${D.meta.source}. Версия ${D.meta.version} BETA.</div>
+      <div class="footer-note">Основание: ${D.meta.source}. Версия 1.1.2 BETA.</div>
+    `;
+  }
+
+  function nstemiProtocolView(){
+    return `
+      <div class="detail-header">
+        <button class="back-btn" data-action="back">←</button>
+        <div class="detail-title"><h1>ОКС без подъёма ST</h1><p>ОКСбпST · взрослые · догоспитальный этап</p></div>
+      </div>
+
+      <div class="segmented">
+        <button class="seg-btn ${state.mode==="brief"?"active":""}" data-mode="brief">Кратко</button>
+        <button class="seg-btn ${state.mode==="full"?"active":""}" data-mode="full">Подробно</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn ${state.tab==="diag"?"active":""}" data-tab="diag">Диагностика</button>
+        <button class="tab-btn ${state.tab==="tx"?"active":""}" data-tab="tx">Лечение</button>
+        <button class="tab-btn ${state.tab==="tactics"?"active":""}" data-tab="tactics">Тактика</button>
+      </div>
+
+      ${state.tab==="diag" ? nstemiDiagTab() : state.tab==="tx" ? nstemiTreatmentTab() : nstemiTacticsTab()}
+      <div class="footer-note">Источник: KR_154_4. Версия 1.1.2 BETA.</div>
     `;
   }
 
@@ -143,6 +177,112 @@
       <div class="card-head"><div class="card-index">${i}</div><div class="card-main"><div class="card-title">${title}</div>${sub?`<div class="card-sub">${sub}</div>`:""}</div></div>
       <div class="card-body">${body}${source?`<div class="source details">${source}</div>`:""}</div>
     </section>`;
+  }
+
+  function nstemiDiagTab(){
+    return `
+      ${card("1","Первичная оценка","Жалобы, анамнез, физикальное обследование",`
+        <p>Собрать жалобы и анамнез, оценить болевой синдром. Провести физикальное обследование. Контролировать АД и ЧСС.</p>
+        <p>ОКСбпST следует подозревать, в частности, при:</p>
+        <ul>
+          <li>ангинозном приступе в покое продолжительностью <strong>&gt;20 минут</strong>;</li>
+          <li>впервые возникшей стенокардии как минимум <strong>II ФК</strong>;</li>
+          <li>утяжелении ранее стабильной стенокардии как минимум до <strong>III ФК</strong>;</li>
+          <li>стенокардии, появившейся в первые <strong>2 недели после ИМ</strong>.</li>
+        </ul>
+        <p>Возможны атипичные/доминирующие проявления: одышка, боль в эпигастрии, тошнота, головокружение, слабость.</p>
+        <div class="notice warn"><strong>Важно:</strong> положительный эффект нитроглицерина не исключает ОКСбпST.</div>
+      `,`KR_154_4: стр. 23–26; Приложение Б2, стр. 221.`)}
+
+      ${card("2","ЭКГ","12 отведений как можно раньше",`
+        <p>Зарегистрировать ЭКГ в <strong>12 отведениях</strong> как можно раньше — в течение <span class="dose">10 минут</span> от начала первичного медицинского контакта.</p>
+        <p>Для ОКСбпST характерны в том числе:</p>
+        <ul>
+          <li>преходящий подъём ST продолжительностью <strong>&lt;20 минут</strong> как минимум в двух смежных отведениях;</li>
+          <li>преходящая или стойкая депрессия ST <strong>≥0,05 мВ</strong> как минимум в двух смежных отведениях;</li>
+          <li>инверсия T <strong>&gt;0,1 мВ</strong> как минимум в двух смежных отведениях;</li>
+          <li>выраженные симметричные отрицательные T <strong>≥0,2 мВ</strong> в прекордиальных отведениях с высокой вероятностью указывают на острую ишемию миокарда.</li>
+        </ul>
+        <div class="notice warn"><strong>Важно:</strong> отсутствие ишемических изменений на ЭКГ не исключает ОКСбпST.</div>
+        <p>При необходимости и возможности — дистанционная консультация ЭКГ. Для фельдшерской бригады КР отдельно указывает обязательную передачу ЭКГ в специализированный телемедицинский центр для согласования ведения и маршрутизации.</p>
+      `,`KR_154_4: стр. 32–33; раздел 2.4; стр. 110; раздел 6.1; Приложение Б2, стр. 221.`)}
+
+      ${card("3","Догоспитальный этап","Мониторирование и ограничения диагностики",`
+        <ul>
+          <li>Начать непрерывное мониторирование ЭКГ.</li>
+          <li>Обеспечить в/в доступ.</li>
+          <li>Обеспечить готовность к дефибрилляции и сердечно-лёгочной реанимации.</li>
+          <li>Ограничить двигательную активность.</li>
+        </ul>
+        <div class="notice info">Для подтверждения/исключения ОКСбпST на догоспитальном этапе КР не рекомендует другие инструментальные или лабораторные диагностические мероприятия, кроме ЭКГ. В частности, определение маркеров повреждения миокарда на этом этапе названо нецелесообразным.</div>
+      `,`KR_154_4: стр. 110; раздел 6.1; Приложение Б2, стр. 221.`)}
+    `;
+  }
+
+  function nstemiTreatmentTab(){
+    return `
+      ${card("1","Нитроглицерин","При болевом синдроме — при отсутствии гипотонии и других противопоказаний",`
+        <p><span class="dose">0,4–0,5 мг</span> под язык в таблетке или в виде аэрозоля/спрея.</p>
+        <ul>
+          <li>Если через <strong>5 минут</strong> симптомы сохраняются и препарат переносится удовлетворительно — можно повторить.</li>
+          <li>Если боль сохраняется после <strong>3 приёмов</strong>, дальнейший приём не имеет смысла; перейти к наркотическому анальгетику.</li>
+          <li>Постоянно контролировать АД из-за риска артериальной гипотонии.</li>
+        </ul>
+      `,`KR_154_4: стр. 49; раздел 3.2.1; Приложение Б2, стр. 222.`)}
+
+      ${card("2","Морфин","Если болевой синдром сохраняется после 3 приёмов нитроглицерина",`
+        <p><strong>Морфин в/в медленно <span class="dose">2–4 мг</span>.</strong></p>
+        <p>Перед введением <span class="dose">10 мг</span> морфина развести как минимум в <span class="dose">10 мл 0,9% раствора натрия хлорида</span>.</p>
+        <p>При необходимости повторять по <span class="dose">2–4 мг каждые 5–15 минут</span> до купирования боли или появления побочных эффектов, не позволяющих увеличивать дозу.</p>
+        <p>Доза для адекватного обезболивания подбирается индивидуально.</p>
+        <div class="notice warn"><strong>Предупреждение:</strong> морфин может замедлять и ослаблять основной эффект клопидогрела, тикагрелора и прасугрела.</div>
+      `,`KR_154_4: стр. 48–50; раздел 3.2.1; Приложение Б2, стр. 222.`)}
+
+      ${card("3","Ацетилсалициловая кислота","Рассмотреть при отсутствии противопоказаний",`
+        <p>Рассмотреть применение АСК <span class="dose">150–300 мг</span>, разжевать.</p>
+        <p>Не рекомендуется использовать кишечнорастворимую лекарственную форму.</p>
+        <div class="notice warn details"><strong>Важно:</strong> основной текст КР отдельно отмечает, что начало применения АСК при ОКСбпST на догоспитальном этапе не имеет доказательств эффективности и безопасности в сравнении с изученным применением в стационаре. При этом специализированный догоспитальный алгоритм Б2 прямо предлагает рассмотреть АСК при отсутствии противопоказаний — поэтому сохранена формулировка «рассмотреть», а не «обязательно дать».</div>
+      `,`KR_154_4: стр. 51; раздел 3.2.3.1; Приложение Б2, стр. 222.`)}
+
+      <div class="notice danger"><strong>Не применять рутинно на догоспитальном этапе:</strong> ингибитор P2Y12-рецептора тромбоцитов и антикоагулянты — не рекомендуются. Тромболитическая терапия при ОКСбпST не рекомендуется.</div>
+      <div class="notice warn details">Основной текст КР отдельно указывает, что начало применения ингибиторов P2Y12 на догоспитальном этапе не имеет доказательств эффективности и безопасности по сравнению с изученным применением в стационаре.</div>
+      <div class="source details">KR_154_4: стр. 52; раздел 3.2.3.1; Приложение Б2, стр. 222.</div>
+    `;
+  }
+
+  function nstemiTacticsTab(){
+    return `
+      ${card("1","Экстренная госпитализация","Показана при любом подозрении на ОКСбпST",`
+        <p>Госпитализация — в стационар, включённый в систему маршрутизации пациентов с ОКС. Маршрутизация должна обеспечивать госпитализацию либо максимально быстрый перевод в стационар с возможностью инвазивного лечения ОКС.</p>
+      `,`KR_154_4: стр. 110; раздел 6.1; Приложение Б2, стр. 222.`)}
+
+      ${card("2","Высокий риск","Экстренная госпитализация в стационар с возможностью ЧКВ",`
+        <p>При наличии хотя бы одного из признаков высокого риска, однозначно подтверждённых в догоспитальном алгоритме:</p>
+        <ul>
+          <li>стойкий или рецидивирующий болевой синдром;</li>
+          <li>нестабильная гемодинамика / шок;</li>
+          <li>отёк лёгких;</li>
+          <li>угрожающие жизни желудочковые аритмии;</li>
+          <li>угрожающие жизни нарушения внутрисердечной проводимости;</li>
+          <li>остановка кровообращения;</li>
+          <li>подозрение на механические осложнения ИМ —</li>
+        </ul>
+        <p>показана экстренная госпитализация в стационар, где возможно выполнение ЧКВ в течение <span class="dose">2 часов после госпитализации</span>.</p>
+        <p>Следует информировать принимающий стационар о транспортировке нестабильного пациента.</p>
+      `,`KR_154_4: Приложение Б2, стр. 222.`)}
+
+      ${card("3","Документирование","Карта вызова и сопроводительный талон",`
+        <p>Указать:</p>
+        <ul>
+          <li>время начала ОКС;</li>
+          <li>время первого медицинского контакта;</li>
+          <li>время регистрации ЭКГ;</li>
+          <li>проведённое на догоспитальном этапе лечение с дозами препаратов;</li>
+          <li>время доставки в стационар;</li>
+          <li>если известно — препараты, принятые пациентом за ближайшие <strong>24 часа</strong>, время их приёма и дозы.</li>
+        </ul>
+      `,`KR_154_4: Приложение Б2, стр. 223.`)}
+    `;
   }
 
   function diagTab(){
@@ -221,8 +361,6 @@
         <p>Показания в КР: <strong>АГ и/или сохраняющаяся ишемия миокарда и/или тахикардия</strong> при отсутствии признаков ОСН и противопоказаний.</p>
         <p>Метопролол: <span class="dose">5 мг в/в медленно</span> под контролем ЭКГ и АД, <span class="dose">2–3 раза</span> с интервалом не менее <span class="dose">2 минут</span>.</p>
         <div class="notice danger"><strong>Не использовать / соблюдать осторожность:</strong> кардиогенный шок, АВ-блокада II–III степени без ЭКС, выраженная бронхообструкция; также учитывать САД &lt;100 мм рт. ст., ЧСС &lt;60/мин, признаки СН/низкого выброса и риск кардиогенного шока.</div>
-        <div class="notice info"><strong>Анаприлин (пропранолол): 20–40 мг сублингвально/внутрь.</strong><br>
-        Схема утверждена по итогам клинического тестирования сотрудниками СМП. Она не приведена в КР157_5 и должна применяться с учётом действующих локальных СОП, противопоказаний и клинической ситуации.</div>
       `,`КР157_5: раздел 3.2.5, стр. 68–70; дозировка метопролола — Приложение А3.`)}
 
       <div class="strategy-box">
@@ -358,7 +496,7 @@
 
     if(btn.dataset.protocol){
       const p = D.protocols.find(x=>x.id===btn.dataset.protocol);
-      if(p?.status!=="active"){
+      if(!p || p.status!=="active"){
         alert("Этот протокол пока в разработке.");
         return;
       }
@@ -381,6 +519,11 @@
       render();
       return;
     }
+    if(btn.dataset.mode){
+      state.mode = btn.dataset.mode;
+      render();
+      return;
+    }
     if(btn.dataset.strategy){
       state.strategy = btn.dataset.strategy;
       render();
@@ -389,6 +532,11 @@
     if(btn.dataset.action==="back"){
       state.screen = "home";
       window.scrollTo(0,0);
+      render();
+      return;
+    }
+    if(btn.dataset.action==="toggle-mode"){
+      state.mode = state.mode==="brief" ? "full" : "brief";
       render();
       return;
     }
