@@ -11,6 +11,7 @@
     nav: "algorithms",
     strategy: "pci",
     favorite: localStorage.getItem("fav_stemi") === "1",
+    favorites: (() => { try { const value = JSON.parse(localStorage.getItem("smp_favorites") || "[]"); return Array.isArray(value) ? value : []; } catch(e) { return []; } })(),
     drugQuery: ""
   };
 
@@ -78,14 +79,14 @@
       <section class="hero">
         <h1>Клинические алгоритмы СМП</h1>
         <p>Быстрый доступ к действиям, дозам и тактике без длинного поиска по документам.</p>
-        <div class="hero-tags"><span class="hero-tag">6 протоколов</span><span class="hero-tag">Кратко / подробно</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
+        <div class="hero-tags"><span class="hero-tag">${D.protocols.length} протоколов</span><span class="hero-tag">Кратко / подробно</span><span class="hero-tag">КР157_5 обновлено</span><span class="hero-tag">β BETA</span></div>
       </section>
       <div class="section-title">Догоспитальный этап</div>
       <div class="protocol-list">
         ${D.protocols.map(p => `<button class="protocol-card" data-protocol="${p.id}">
           <span class="protocol-icon">${p.icon}</span>
           <span class="protocol-meta"><span class="protocol-name">${p.title}</span><span class="protocol-sub">${p.sub}</span></span>
-          <span class="badge ${p.status}">${p.status==="active"?"ГОТОВО":"СКОРО"}</span>
+          <span class="badge ${p.status}">${p.status==="active"?(p.beta?"BETA":"ГОТОВО"):"СКОРО"}</span>
         </button>`).join("")}
       </div>
       <div class="footer-note">Тестовая версия. Медицинские материалы проходят клиническую проверку и не заменяют локальные СОП, приказы и клиническое решение специалиста.</div>
@@ -113,15 +114,119 @@
   }
 
   function favoritesView(){
+    const ids = new Set(state.favorites);
+    if(state.favorite) ids.add("stemi");
+    const favorites = D.protocols.filter(p => ids.has(p.id) && p.status === "active");
     return `<div class="section-title" style="margin-top:2px">Избранное</div>
-      ${state.favorite ? `<button class="protocol-card" data-protocol="stemi">
-        <span class="protocol-icon">❤️</span><span class="protocol-meta"><span class="protocol-name">ОКС с подъёмом ST</span><span class="protocol-sub">STEMI · взрослые</span></span><span class="badge active">★</span>
-      </button>` : `<div class="empty">Пока пусто. Добавь протокол звёздочкой.</div>`}`;
+      ${favorites.length ? favorites.map(p => `<button class="protocol-card" data-protocol="${p.id}">
+        <span class="protocol-icon">${p.icon}</span><span class="protocol-meta"><span class="protocol-name">${p.title}</span><span class="protocol-sub">${p.sub}</span></span><span class="badge active">★</span>
+      </button>`).join("") : `<div class="empty">Пока пусто. Добавь протокол звёздочкой.</div>`}`;
   }
 
   function protocolView(){
     if(state.protocol === "nstemi") return nstemiProtocolView();
+    const protocol = D.protocols.find(p => p.id === state.protocol);
+    if(protocol?.beta) return betaProtocolView(protocol);
     return stemiProtocolView();
+  }
+
+  function markdownInline(text){
+    return esc(text).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  }
+
+  function markdownBlocks(markdown){
+    const lines = markdown.split(/\r?\n/);
+    const out = [];
+    let listType = "";
+    let listItems = [];
+    let paragraph = [];
+    const flushList = () => {
+      if(!listType) return;
+      const tag = listType === "ol" ? "ol" : "ul";
+      out.push(`<${tag}>${listItems.map(item=>`<li>${markdownInline(item)}</li>`).join("")}</${tag}>`);
+      listType = ""; listItems = [];
+    };
+    const flushParagraph = () => {
+      if(!paragraph.length) return;
+      out.push(`<p>${paragraph.map(markdownInline).join(" ")}</p>`);
+      paragraph = [];
+    };
+    for(const raw of lines){
+      const line = raw.trim();
+      if(!line){ flushParagraph(); flushList(); continue; }
+      if(line.startsWith("### ")){
+        flushParagraph(); flushList(); out.push(`<h3>${markdownInline(line.slice(4))}</h3>`); continue;
+      }
+      const bullet = line.match(/^[-*]\s+(.+)$/);
+      const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+      if(bullet || numbered){
+        flushParagraph();
+        const nextType = numbered ? "ol" : "ul";
+        if(listType && listType !== nextType) flushList();
+        listType = nextType; listItems.push((bullet || numbered)[1]); continue;
+      }
+      if(line.startsWith("**Источник:**")){
+        flushParagraph(); flushList();
+        out.push(`<div class="source">${markdownInline(line)}</div>`); continue;
+      }
+      flushList(); paragraph.push(line);
+    }
+    flushParagraph(); flushList();
+    return out.join("");
+  }
+
+  function betaProtocolView(protocol){
+    const markdown = window.SMP_CARD_CONTENT?.[protocol.id.toUpperCase()];
+    if(!markdown) return `<div class="detail-header"><button class="back-btn" data-action="back">←</button><div class="detail-title"><h1>${esc(protocol.title)}</h1></div></div><div class="notice warn">Не удалось загрузить карточку.</div>`;
+    const lines = markdown.split(/\r?\n/);
+    const sectionStart = lines.findIndex(line => line.startsWith("## "));
+    const preface = lines.slice(1, sectionStart < 0 ? lines.length : sectionStart).join("\n").trim();
+    const sections = {};
+    let current = "";
+    for(const line of lines.slice(sectionStart < 0 ? lines.length : sectionStart)){
+      if(line.startsWith("## ")){ current = line.slice(3).trim(); sections[current] = []; }
+      else if(current) sections[current].push(line);
+    }
+    const sourceTitle = lines[0]?.replace(/^#\s*/, "") || protocol.title;
+    const label = protocol.sub.split(" · ").slice(1).join(" · ") || "догоспитальный этап";
+    const sectionKey = state.tab === "diag" ? "Диагностика" : state.tab === "tx" ? "Лечение" : "Тактика";
+    return `
+      <div class="detail-header">
+        <button class="back-btn" data-action="back">←</button>
+        <div class="detail-title"><h1>${esc(protocol.title)}</h1><p>${esc(label)} · догоспитальный этап · BETA</p></div>
+        <button class="favorite-btn ${isFavorite(protocol.id)?"on":""}" data-action="favorite-card" title="Избранное">${isFavorite(protocol.id)?"♥":"♡"}</button>
+      </div>
+      <div class="segmented">
+        <button class="seg-btn ${state.mode==="brief"?"active":""}" data-mode="brief">Кратко</button>
+        <button class="seg-btn ${state.mode==="full"?"active":""}" data-mode="full">Подробно</button>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn ${state.tab==="diag"?"active":""}" data-tab="diag">Диагностика</button>
+        <button class="tab-btn ${state.tab==="tx"?"active":""}" data-tab="tx">Лечение</button>
+        <button class="tab-btn ${state.tab==="tactics"?"active":""}" data-tab="tactics">Тактика</button>
+      </div>
+      ${state.tab==="diag" && preface ? `<section class="card"><div class="card-head"><div class="card-main"><div class="card-title">${esc(sourceTitle)}</div><div class="card-sub">${esc(markdown.replace(/^#[^\n]*\n+/,"").split("\n")[0].replace(/\*\*/g,""))}</div></div></div><div class="card-body">${markdownBlocks(preface.split("\n").slice(2).join("\n"))}</div></section>` : ""}
+      ${renderMarkdownSection(sections[sectionKey] || [])}
+      <div class="footer-note">Источник медицинского содержания: ${esc(protocol.sub.split(" · ")[0])}. Версия ${D.meta.version} BETA.</div>`;
+  }
+
+  function renderMarkdownSection(lines){
+    const chunks = [];
+    let current = {title:"", lines:[]};
+    for(const line of lines){
+      if(line.startsWith("### ")){
+        if(current.title || current.lines.some(x=>x.trim())) chunks.push(current);
+        current = {title:line.slice(4).trim(), lines:[]};
+      } else current.lines.push(line);
+    }
+    if(current.title || current.lines.some(x=>x.trim())) chunks.push(current);
+    return chunks.map((chunk,index)=>chunk.title
+      ? card(String(index+1),esc(chunk.title),"",markdownBlocks(chunk.lines.join("\n")),"")
+      : `<section class="card"><div class="card-body">${markdownBlocks(chunk.lines.join("\n"))}</div></section>`).join("");
+  }
+
+  function isFavorite(id){
+    return id === "stemi" ? state.favorite : state.favorites.includes(id);
   }
 
   function stemiProtocolView(){
@@ -145,7 +250,7 @@
 
       ${state.tab==="diag" ? diagTab() : state.tab==="tx" ? treatmentTab() : tacticsTab()}
 
-      <div class="footer-note">Основание: ${D.meta.source}. Версия 1.1.2 BETA.</div>
+      <div class="footer-note">Основание: ${D.meta.source}. Версия ${D.meta.version} BETA.</div>
     `;
   }
 
@@ -154,6 +259,7 @@
       <div class="detail-header">
         <button class="back-btn" data-action="back">←</button>
         <div class="detail-title"><h1>ОКС без подъёма ST</h1><p>ОКСбпST · взрослые · догоспитальный этап</p></div>
+        <button class="favorite-btn ${isFavorite("nstemi")?"on":""}" data-action="favorite-card" title="Избранное">${isFavorite("nstemi")?"♥":"♡"}</button>
       </div>
 
       <div class="segmented">
@@ -168,7 +274,7 @@
       </div>
 
       ${state.tab==="diag" ? nstemiDiagTab() : state.tab==="tx" ? nstemiTreatmentTab() : nstemiTacticsTab()}
-      <div class="footer-note">Источник: KR_154_4. Версия 1.1.2 BETA.</div>
+      <div class="footer-note">Источник: KR_154_4. Версия ${D.meta.version} BETA.</div>
     `;
   }
 
@@ -548,6 +654,20 @@
     if(btn.dataset.action==="favorite"){
       state.favorite = !state.favorite;
       localStorage.setItem("fav_stemi", state.favorite ? "1" : "0");
+      render();
+      return;
+    }
+    if(btn.dataset.action==="favorite-card"){
+      const id = state.protocol;
+      if(id === "stemi"){
+        state.favorite = !state.favorite;
+        localStorage.setItem("fav_stemi", state.favorite ? "1" : "0");
+      } else {
+        state.favorites = state.favorites.includes(id)
+          ? state.favorites.filter(item => item !== id)
+          : [...state.favorites, id];
+        localStorage.setItem("smp_favorites", JSON.stringify(state.favorites));
+      }
       render();
       return;
     }

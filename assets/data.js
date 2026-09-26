@@ -1,7 +1,7 @@
 
 window.SMP_DATA = {
   meta: {
-    version: "1.1.2",
+    version: "1.2.0",
     source: "Клинические рекомендации «Острый инфаркт миокарда с подъемом сегмента ST электрокардиограммы», 2024; КР157_5",
     scope: "Догоспитальный этап"
   },
@@ -9,10 +9,12 @@ window.SMP_DATA = {
   protocols: [
     {id:"stemi", icon:"❤️", title:"ОКС с подъёмом ST", sub:"STEMI · взрослые", status:"active"},
     {id:"nstemi", icon:"🫀", title:"ОКС без подъёма ST", sub:"NSTEMI · взрослые", status:"active"},
-    {id:"stroke", icon:"🧠", title:"ОНМК", sub:"Взрослые · LAMS", status:"soon"},
+    {id:"kr_814_1", icon:"🧠", title:"Ишемический инсульт / ТИА", sub:"KR_814_1 · взрослые и дети", status:"active", beta:true},
+    {id:"kr_523_3", icon:"🧠", title:"Геморрагический инсульт", sub:"KR_523_3 · взрослые", status:"active", beta:true},
     {id:"gib", icon:"🩸", title:"ЖКК", sub:"Желудочно-кишечное кровотечение", status:"soon"},
-    {id:"renal", icon:"💧", title:"Почечная колика", sub:"Взрослые и дети", status:"soon"},
-    {id:"preeclampsia", icon:"🤰", title:"Преэклампсия", sub:"Лёгкая · средняя · тяжёлая", status:"soon"}
+    {id:"kr_637_2", icon:"🤰", title:"Преэклампсия / эклампсия", sub:"KR_637_2 · беременность, роды и послеродовой период", status:"active", beta:true},
+    {id:"kr_7_2", icon:"💧", title:"Мочекаменная болезнь / почечная колика", sub:"KR_7_2 · взрослые", status:"active", beta:true},
+    {id:"kr_678_2", icon:"❄️", title:"Гипотермия / холодовая травма", sub:"KR_678_2 · взрослые и дети", status:"active", beta:true}
   ],
 
   drugs: [
